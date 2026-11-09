@@ -1,0 +1,22 @@
+[project]
+name = "local-research-commander"
+version = "0.1.0"
+description = "Local MCP for categorized live research and explicit workstation operations"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.30,<2",
+  "httpx>=0.28,<1",
+  "beautifulsoup4>=4.12,<5",
+  "mss>=10,<11",
+  "pillow>=10,<12",
+  "python-xlib>=0.33,<1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

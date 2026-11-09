@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git 差异审阅</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; padding: 16px; background: #f8fafc; color: #172033; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
+  h1 { font-size: 17px; margin: 0; }
+  small { color: #64748b; overflow-wrap: anywhere; }
+  .tabs { display: flex; gap: 6px; margin: 14px 0 8px; }
+  button { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 12px; background: white; cursor: pointer; }
+  button[aria-selected="true"] { background: #1e40af; color: white; border-color: #1e40af; }
+  pre { margin: 0; padding: 12px; max-height: 520px; overflow: auto; border: 1px solid #dbe3ee; border-radius: 8px;
+        background: white; font-size: 12px; line-height: 1.45; white-space: pre; }
+  .line { display: block; min-height: 1.45em; }
+  .add { background: #dcfce7; color: #14532d; }
+  .del { background: #fee2e2; color: #7f1d1d; }
+  .hunk { background: #dbeafe; color: #1e3a8a; }
+  .empty { color: #64748b; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111827; color: #e5e7eb; } small { color: #94a3b8; }
+    button, pre { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+    .add { background: #123524; color: #bbf7d0; } .del { background: #451a1a; color: #fecaca; }
+    .hunk { background: #172554; color: #bfdbfe; }
+  }
+</style>
+</head>
+<body>
+<header><h1>Git 差异审阅</h1><small id="location">正在读取结果…</small></header>
+<div class="tabs" role="tablist" aria-label="审阅内容">
+  <button type="button" data-field="unstaged_diff" aria-selected="true">未暂存</button>
+  <button type="button" data-field="staged_diff" aria-selected="false">已暂存</button>
+  <button type="button" data-field="status" aria-selected="false">状态</button>
+  <button type="button" data-field="whitespace_errors" aria-selected="false">空白错误</button>
+</div>
+<pre id="diff" aria-live="polite"></pre>
+<script>
+  let payload = null;
+  let field = 'unstaged_diff';
+  const output = document.getElementById('diff');
+  function render() {
+    output.replaceChildren();
+    if (!payload) { output.textContent = '等待工具结果'; return; }
+    document.getElementById('location').textContent = (payload.root || '') + ' · ' + (payload.path || '.');
+    const value = payload[field] || '';
+    if (!value) { const span = document.createElement('span'); span.className = 'empty'; span.textContent = '无内容'; output.append(span); return; }
+    for (const line of value.split('\n')) {
+      const span = document.createElement('span');
+      span.className = 'line' + (line.startsWith('+') && !line.startsWith('+++') ? ' add' :
+        line.startsWith('-') && !line.startsWith('---') ? ' del' : line.startsWith('@@') ? ' hunk' : '');
+      span.textContent = line;
+      output.append(span);
+    }
+  }
+  document.querySelectorAll('button[data-field]').forEach(button => button.addEventListener('click', () => {
+    field = button.dataset.field;
+    document.querySelectorAll('button[data-field]').forEach(item => item.setAttribute('aria-selected', String(item === button)));
+    render();
+  }));
+  function receive(value) {
+    if (value && typeof value === 'object') {
+      payload = value.structuredContent || value;
+      render();
+    }
+  }
+  receive(window.openai && window.openai.toolOutput);
+  window.addEventListener('openai:set_globals', event => receive(event.detail && event.detail.globals && event.detail.globals.toolOutput));
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (data && data.method === 'ui/notifications/tool-result') receive(data.params && (data.params.result || data.params));
+  });
+  render();
+</script>
+</body>
+</html>
